@@ -344,31 +344,31 @@ function moving_collisions() {
 
 
         if (spike[2] === "down") {
-            spikeLeft = spike[0] + 5;
-            spikeRight = spikeLeft + 40;
+            spikeLeft = spike[0] + 10;
+            spikeRight = spikeLeft + 30;
             spikeTop = spike[1];
             spikeDown = spikeTop + 7;
         }
 
         if (spike[2] === "up") {
-            spikeLeft = spike[0] + 5;
-            spikeRight = spikeLeft + 40;
-            spikeTop = spike[1] + 40;
+            spikeLeft = spike[0] + 10;
+            spikeRight = spikeLeft + 30;
+            spikeTop = spike[1] + 43;
             spikeDown = spikeTop + 7;
         }
 
         if (spike[2] === "left") {
-            spikeLeft = spike[0] + 40;
+            spikeLeft = spike[0] + 43;
             spikeRight = spikeLeft + 7;
-            spikeTop = spike[1] + 5;
-            spikeDown = spikeTop + 40;
+            spikeTop = spike[1] + 10;
+            spikeDown = spikeTop + 30;
         }
 
         if (spike[2] === "right") {
             spikeLeft = spike[0];
             spikeRight = spikeLeft + 7;
-            spikeTop = spike[1] + 5;
-            spikeDown = spikeTop + 40;
+            spikeTop = spike[1] + 10;
+            spikeDown = spikeTop + 30;
 
 
         }
