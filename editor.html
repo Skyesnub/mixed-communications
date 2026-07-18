@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Tile Editor</title>
+<style>
+  body { margin: 0; font-family: sans-serif; }
+  #ui { padding: 10px; background: #eee; }
+  canvas { display: block; border: 1px solid black; }
+  button { margin-right: 10px; }
+</style>
+</head>
+<body>
+
+<div id="ui">
+  <button onclick="exportMap()">Export</button>
+  <button onclick="clearMap()">Clear</button>
+
+  <button onclick="setMode('block')">Block</button>
+  <button onclick="setMode('bounce')">Bounce</button>
+  <button onclick="setMode('spike')">Spike</button>
+  <button onclick="setMode('decor')">Decor</button>
+  <button onclick="importMapPrompt()">Import</button>
+
+  <br><br>
+  <span>Spike Direction:</span>
+  <button onclick="setSpikeDir('up')">↑</button>
+  <button onclick="setSpikeDir('down')">↓</button>
+  <button onclick="setSpikeDir('left')">←</button>
+  <button onclick="setSpikeDir('right')">→</button>
+</div>
+
+<canvas id="canvas" width="5800" height="700"></canvas>
+
+<script>
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+
+const tileSize = 50;
+const cols = canvas.width / tileSize;
+const rows = canvas.height / tileSize;
+
+const tiles = new Map();
+
+let currentMode = "block";
+let spikeDir = "up";
+
+
+//imagez
+let spikeUp = new Image();
+spikeUp.src = "./images-folder/spike-up.png"
+
+let spikeLeft = new Image();
+spikeLeft.src = "./images-folder/spike-left.png"
+
+let spikeRight = new Image();
+spikeRight.src = "./images-folder/spike-right.png"
+
+let spikeDown = new Image();
+spikeDown.src = "./images-folder/spike-down.png"
+
+
+
+function setMode(mode) {
+  currentMode = mode;
+}
+
+function setSpikeDir(dir) {
+  spikeDir = dir;
+}
+
+canvas.addEventListener("click", (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const mouseX = e.clientX - rect.left;
+  const mouseY = e.clientY - rect.top;
+
+  const gridX = Math.floor(mouseX / tileSize);
+  const gridY = Math.floor(mouseY / tileSize);
+
+  const key = `${gridX},${gridY}`;
+
+  if (tiles.has(key)) {
+    tiles.delete(key);
+  } else {
+    if (currentMode === "spike") {
+      tiles.set(key, { type: "spike", dir: spikeDir });
+    } 
+    
+    else if (currentMode === "bounce") {
+      tiles.set(key, { type: "bounce" });
+    }
+
+    else if (currentMode === "decor") {
+      tiles.set(key, { type: "decor" });
+    }
+
+    else {
+      tiles.set(key, { type: "block" });
+    }
+  }
+});
+
+function importMap(data) {
+  tiles.clear();
+
+  const { blocks = [], spikes = [], bounces = [], decors = [] } = data;
+
+  // blocks
+  for (const [x, y] of blocks) {
+    const gx = x / tileSize;
+    const gy = y / tileSize;
+    tiles.set(`${gx},${gy}`, { type: "block" });
+  }
+
+  // bounces
+  for (const [x, y] of bounces) {
+    const gx = x / tileSize;
+    const gy = y / tileSize;
+    tiles.set(`${gx},${gy}`, { type: "bounce" });
+  }
+
+  // spikes
+  for (const [x, y, dir] of spikes) {
+    const gx = x / tileSize;
+    const gy = y / tileSize;
+    tiles.set(`${gx},${gy}`, { type: "spike", dir });
+  }
+
+  // decor
+  for (const [x, y] of decors) {
+    const gx = x / tileSize;
+    const gy = y / tileSize;
+    tiles.set(`${gx},${gy}`, { type: "decor" });
+  }
+}
+
+function importMapPrompt() {
+  const input = prompt("Paste your map data (blocks, spikes, bounces, decors)");
+
+  try {
+    const data = {};
+    eval(`
+      ${input}
+      data.blocks = blocks || [];
+      data.spikes = spikes || [];
+      data.bounces = bounces || [];
+      data.decors = decors || [];
+    `);
+
+    importMap(data);
+  } catch (e) {
+    alert("Invalid format");
+    console.error(e);
+  }
+}
+
+function drawGrid() {
+  ctx.strokeStyle = "#ccc";
+  for (let x = 0; x < cols; x++) {
+    for (let y = 0; y < rows; y++) {
+      ctx.strokeRect(x * tileSize, y * tileSize, tileSize, tileSize);
+    }
+  }
+}
+
+function drawTiles() {
+  for (const [key, tile] of tiles.entries()) {
+    const [x, y] = key.split(",").map(Number);
+    const px = x * tileSize;
+    const py = y * tileSize;
+
+    if (tile.type === "block") {
+      ctx.fillStyle = "black";
+      ctx.fillRect(px, py, tileSize, tileSize);
+    }
+
+    else if (tile.type === "bounce") {
+      ctx.fillStyle = "blue";
+      ctx.fillRect(px, py, tileSize, tileSize);
+    }
+
+    else if (tile.type === "spike") {
+
+      if (tile.dir === "up") {
+        ctx.drawImage(spikeUp, px, py, 50, 50)
+      }
+
+      else if (tile.dir === "down") {
+        ctx.drawImage(spikeDown, px, py, 50, 50)
+      }
+
+      else if (tile.dir === "left") {
+        ctx.drawImage(spikeLeft, px, py, 50, 50)
+      }
+
+      else if (tile.dir === "right") {
+        ctx.drawImage(spikeRight, px, py, 50, 50)
+      }
+    }
+    else if (tile.type === "decor") {
+      ctx.fillStyle = "#cfcfcf";
+      ctx.fillRect(px, py, tileSize, tileSize);
+    }
+  }
+}
+
+function exportMap() {
+  const blocks = [];
+  const spikes = [];
+  const bounces = [];
+  const decors = [];
+
+  for (const [key, tile] of tiles.entries()) {
+    const [x, y] = key.split(",").map(Number);
+    const pos = [x * tileSize, y * tileSize];
+
+    if (tile.type === "block") {
+      blocks.push(pos);
+    }
+
+    else if (tile.type === "bounce") {
+      bounces.push([pos[0], pos[1], "off", 0]);
+    }
+
+    else if (tile.type === "spike") {
+      spikes.push([pos[0], pos[1], tile.dir]);
+    }
+
+    else if (tile.type === "decor") {
+      decors.push(pos);
+    }
+  }
+
+  console.log("let blocks =", JSON.stringify(blocks));
+  console.log("let spikes =", JSON.stringify(spikes));
+  console.log("let bounces =", JSON.stringify(bounces));
+  console.log("let decors =", JSON.stringify(decors));
+
+  alert("Map exported to console");
+}
+
+function clearMap() {
+  let areYouSure = prompt("Are you sure you want to clear everything?")
+
+  if (areYouSure === "yes") {tiles.clear();}
+  
+}
+
+function loop() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  drawGrid();
+  drawTiles();
+  requestAnimationFrame(loop);
+}
+
+loop();
+</script>
+
+</body>
+</html>
