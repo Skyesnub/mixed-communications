@@ -85,10 +85,450 @@ let upSpike = new Image(); upSpike.src = "./images-folder/up-spike.png";
 let downSpike = new Image(); downSpike.src = "./images-folder/down-spike.png";
 
 
+// ============================================================
+// Autonomous playback mode
+// ============================================================
+// A "run" is [direction, up, frameCount] where direction is
+// -1 (left) / 0 (none) / 1 (right), and "up" is whether the
+// up-thrust key is held. These are the computed solves for each
+// level, compressed into held-input segments.
+
+const level1Solution = [
+    [0, false, 4],
+    [1, false, 87],
+    [1, true, 13],
+    [0, true, 53],
+    [1, true, 7],
+];
+
+const level2Solution = [
+    [1, true, 1],
+    [1, false, 36],
+    [1, true, 3],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 31],
+    [1, true, 1],
+    [1, false, 2],
+    [0, false, 15],
+    [1, false, 25],
+    [-1, false, 2],
+    [0, false, 8],
+    [1, false, 2],
+    [0, false, 1],
+    [1, true, 39],
+    [0, true, 15],
+    [-1, true, 8],
+    [0, true, 25],
+    [-1, true, 2],
+    [0, true, 3],
+    [1, true, 7],
+];
+
+const level3Solution = [
+    [1, false, 30],
+    [0, false, 20],
+    [1, false, 2],
+    [0, false, 42],
+    [-1, false, 6],
+    [0, false, 10],
+    [-1, false, 10],
+    [0, false, 6],
+    [1, false, 2],
+    [0, false, 6],
+    [0, true, 1],
+    [1, true, 2],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 2],
+    [1, true, 2],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 2],
+    [1, true, 2],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 2],
+    [1, true, 2],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 2],
+    [1, true, 2],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 1],
+    [1, true, 29],
+    [0, true, 69],
+    [1, true, 31],
+];
+
+const level4Solution = [
+    [0, false, 2],
+    [1, false, 28],
+    [0, true, 1],
+    [1, true, 2],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 2],
+    [1, true, 2],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 2],
+    [0, false, 1],
+    [1, false, 4],
+    [1, true, 7],
+    [1, false, 12],
+    [1, true, 1],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 6],
+    [0, false, 13],
+    [-1, false, 26],
+    [0, false, 2],
+    [-1, false, 8],
+    [0, false, 1],
+    [-1, false, 6],
+    [1, false, 12],
+    [1, true, 1],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 18],
+    [1, true, 18],
+    [0, true, 3],
+    [1, true, 4],
+    [0, true, 3],
+    [1, true, 3],
+    [0, true, 60],
+];
+
+const level5Solution = [
+    [1, false, 27],
+    [1, true, 3],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 2],
+    [1, true, 2],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 4],
+    [0, false, 33],
+    [-1, false, 3],
+    [-1, true, 4],
+    [-1, false, 17],
+    [0, false, 13],
+    [1, false, 3],
+    [1, true, 4],
+    [1, false, 39],
+    [1, true, 12],
+    [0, true, 10],
+    [1, true, 22],
+    [0, true, 27],
+    [1, true, 40],
+];
+
+const level6Solution = [
+    [0, false, 26],
+    [1, false, 20],
+    [0, false, 7],
+    [-1, false, 2],
+    [1, false, 1],
+    [0, false, 1],
+    [1, false, 1],
+    [0, false, 47],
+    [1, false, 14],
+    [1, true, 1],
+    [1, false, 17],
+    [1, true, 2],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 1],
+    [1, true, 13],
+    [1, false, 1],
+    [1, true, 2],
+    [1, false, 1],
+    [1, true, 2],
+    [0, true, 23],
+    [1, true, 6],
+    [0, true, 12],
+    [-1, true, 46],
+    [1, true, 1],
+    [0, true, 1],
+    [1, true, 1],
+    [1, false, 1],
+    [1, true, 13],
+    [1, false, 10],
+    [1, true, 10],
+    [1, false, 8],
+    [1, true, 1],
+    [1, false, 2],
+];
+
+const level7Solution = [
+    [1, false, 27],
+    [0, false, 3],
+    [1, true, 2],
+    [0, true, 3],
+    [0, false, 1],
+    [1, false, 2],
+    [1, true, 1],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 2],
+    [1, true, 2],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 2],
+    [1, true, 2],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 2],
+    [1, true, 2],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 4],
+    [0, false, 10],
+    [1, false, 1],
+    [0, false, 1],
+    [-1, false, 7],
+    [0, false, 5],
+    [-1, false, 28],
+    [0, false, 1],
+    [-1, false, 6],
+    [1, false, 6],
+    [1, true, 1],
+    [1, false, 6],
+    [1, true, 1],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 1],
+    [1, true, 1],
+    [-1, false, 2],
+    [0, false, 8],
+    [1, false, 2],
+    [0, false, 17],
+    [1, false, 39],
+    [1, true, 10],
+    [1, false, 1],
+    [1, true, 3],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 1],
+    [1, true, 13],
+    [0, true, 3],
+    [1, true, 16],
+    [-1, true, 2],
+    [0, true, 78],
+];
+
+const level8Solution = [
+    [1, false, 18],
+    [1, true, 1],
+    [1, false, 4],
+    [1, true, 13],
+    [1, false, 1],
+    [0, false, 6],
+    [1, false, 13],
+    [0, false, 1],
+    [-1, false, 5],
+    [1, false, 5],
+    [0, false, 4],
+    [1, false, 5],
+    [-1, false, 29],
+    [0, false, 13],
+    [1, false, 3],
+    [1, true, 4],
+    [1, false, 19],
+    [0, false, 7],
+    [1, false, 30],
+    [1, true, 1],
+    [1, false, 5],
+    [1, true, 3],
+    [1, false, 1],
+    [1, true, 2],
+    [0, true, 1],
+    [1, true, 8],
+    [0, true, 10],
+    [1, true, 8],
+    [0, true, 80],
+];
+
+const level9Solution = [
+    [1, false, 42],
+    [1, true, 4],
+    [1, false, 1],
+    [1, true, 3],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 1],
+    [1, true, 1],
+    [1, false, 14],
+    [1, true, 27],
+];
+
+// level number -> compressed run-length solution
+const autoPlaySolutions = {
+    1: level1Solution,
+    2: level2Solution,
+    3: level3Solution,
+    4: level4Solution,
+    5: level5Solution,
+    6: level6Solution,
+    7: level7Solution,
+    8: level8Solution,
+    9: level9Solution,
+};
+
+let autoPlay = false;
+let autoPlayFrame = 0;
+let autoPlaySequence = [];
+
+function expandSolution(runs) {
+    const frames = [];
+    for (const [dir, up, count] of runs) {
+        for (let i = 0; i < count; i++) {
+            frames.push({ left: dir === -1, right: dir === 1, up: up });
+        }
+    }
+    return frames;
+}
+
+function startAutoPlay(levelNum) {
+    const solution = autoPlaySolutions[levelNum];
+    if (!solution) {
+        console.log(`No recorded solution for level ${levelNum} yet.`);
+        return;
+    }
+
+    level = levelNum;
+    if (levelNum === 1) { blocks = blocks1; spikes = spikes1; decors = decors1 }
+    if (levelNum === 2) { blocks = blocks2; spikes = spikes2; decors = decors2 }
+    if (levelNum === 3) { blocks = blocks3; spikes = spikes3; decors = decors3 }
+    if (levelNum === 4) { blocks = blocks4; spikes = spikes4; decors = decors4 }
+    if (levelNum === 5) { blocks = blocks5; spikes = spikes5; decors = decors5 }
+    if (levelNum === 6) { blocks = blocks6; spikes = spikes6; decors = decors6 }
+    if (levelNum === 7) { blocks = blocks7; spikes = spikes7; decors = decors7 }
+    if (levelNum === 8) { blocks = blocks8; spikes = spikes8; decors = decors8 }
+    if (levelNum === 9) { blocks = blocks9; spikes = spikes9; decors = decors9 }
+
+    death();
+    autoPlaySequence = expandSolution(solution);
+    autoPlayFrame = 0;
+    autoPlay = true;
+    movingLeft = false;
+    movingRight = false;
+    movingUp = false;
+    console.log(`Autoplay started: level ${levelNum}, ${autoPlaySequence.length} frames`);
+}
+// ============================================================
+
+
 document.addEventListener("keydown", e => {
     if (e.key === "q") {
         level = (prompt("What level?"))-1
         changeLevel()
+    }
+    if (e.key === "r") {
+        startAutoPlay(level);
     }
     if (e.key === "ArrowUp") {
         movingUp = true;
@@ -208,6 +648,12 @@ function draw() {
     ctx.fillStyle = "purple";
     ctx.fillRect(600,0,1, canvas.height)
 
+    // autoplay indicator
+    if (autoPlay) {
+        ctx.fillStyle = "#00FF00";
+        ctx.font = "16px monospace";
+        ctx.fillText(`AUTO  frame ${autoPlayFrame}/${autoPlaySequence.length}`, 10, 20);
+    }
 
 }
 
@@ -407,6 +853,22 @@ let levelChangeAnimTimer = 0;
 
 function animate() {
     draw()
+
+    if (autoPlay) {
+        if (autoPlayFrame < autoPlaySequence.length) {
+            const f = autoPlaySequence[autoPlayFrame];
+            movingLeft = f.left;
+            movingRight = f.right;
+            movingUp = f.up;
+            autoPlayFrame++;
+        } else {
+            autoPlay = false;
+            movingLeft = false;
+            movingRight = false;
+            movingUp = false;
+        }
+    }
+
     if (!levelChangeAnimOn) {moving_collisions()}
     
 
