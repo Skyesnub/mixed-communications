@@ -8,13 +8,35 @@
     <link rel="icon" href="./images-folder/icon.png">
 </head>
 <body>
+    <p id="info-paragraph" class="">Some information about this game: <br><br>
+        The game itself is not vibe coded. However, the autonomous solutions are. They are just a simple experiment that I was curious about.<br><br>
+        To play the game, use the up, left, and right arrow keys. Pressing 'q' allows you to switch levels, and 'r' and 'h' allow you to experience the robotic and human solutions for each level. (This was coded by AI) <br><br>
+        While this wasn't actually inspired by anything, I've heard it's very similar to Fireboy and Watergirl, but this is my own original idea. <br><br>
+        Anyways that's all! (press 'i' to remove me and 'i' to get me back.)
+    </p>
+
     <canvas id="canvas" width="1200" height="700"></canvas>
-    <script src="main.js" type="module"></script>
+    <script src="levels.js"></script>
+    <script src="solutions-optimal.js"></script>
+    <script src="solutions-human.js"></script>
+    <script src="main.js"></script>
 
     <style>
         canvas {
     background: black;
-}   
+        }   
+        #info-paragraph {
+            position: absolute;
+            top: 10px;
+            left: 1220px;
+            white-space: normal;
+        }
+
+        #info-paragraph.hidden {
+            display: none;
+        }
     </style>
+
+
 </body>
 </html>
