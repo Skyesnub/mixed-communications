@@ -1,10 +1,20 @@
 // ============================================================
 // Human-friendly solutions — found with a search that penalizes
-// switching the up/down input rapidly, biasing toward longer
-// holdable segments over frame-perfect precision. Frame counts
-// are close to (occasionally even better than) the mathematically
-// optimal solutions in solutions-optimal.js, but every segment
-// here is long enough a person could actually execute it.
+// (a) switching the up/down input rapidly, and (b) passing within
+// 1 tile of a spike, when an equally-short alternative exists.
+// Biases toward long holdable segments and more breathing room
+// around hazards, over frame-perfect precision.
+//
+// The spike-avoidance penalty only changed the outcome for levels
+// 2 and 3 (both improved from 0-tile to 1-tile clearance at a
+// small frame cost). For levels 4-8, the search either couldn't
+// converge in reasonable time with the extra penalty, or converged
+// to a *longer* path with the same 0-tile clearance floor — meaning
+// those levels have at least one unavoidable chokepoint where the
+// path must pass through a spike's tile regardless. Those levels
+// keep the switch-penalty-only solve, which is strictly better
+// (shorter, same clearance). Levels 1 and 9 were already at 1-tile
+// and 3-tile clearance respectively with no spikes nearby to avoid.
 //
 // Each run is [direction, up, frameCount]:
 //   direction: -1 = left, 0 = none, 1 = right
@@ -20,19 +30,17 @@ const level1SolutionHuman = [
 ];
 
 const level2SolutionHuman = [
-    [1, true, 23],
-    [1, false, 25],
-    [0, false, 7],
+    [1, true, 48],
     [1, false, 32],
-    [0, false, 16],
-    [1, false, 24],
-    [-1, false, 2],
-    [0, false, 8],
-    [1, false, 3],
-    [1, true, 39],
-    [0, true, 15],
-    [-1, true, 8],
-    [0, true, 25],
+    [0, false, 13],
+    [-1, false, 20],
+    [1, false, 47],
+    [1, true, 33],
+    [0, true, 28],
+    [-1, true, 7],
+    [0, true, 7],
+    [-1, true, 1],
+    [0, true, 5],
     [-1, true, 2],
     [0, true, 3],
     [1, true, 7],
@@ -49,12 +57,19 @@ const level3SolutionHuman = [
     [-1, false, 10],
     [0, false, 7],
     [-1, false, 3],
-    [1, false, 26],
-    [1, true, 51],
-    [0, true, 13],
-    [1, true, 23],
-    [0, true, 27],
-    [1, true, 37],
+    [1, false, 27],
+    [1, true, 20],
+    [0, true, 1],
+    [1, true, 3],
+    [0, true, 2],
+    [1, true, 27],
+    [0, true, 11],
+    [1, true, 24],
+    [0, true, 28],
+    [1, true, 9],
+    [0, true, 2],
+    [1, true, 27],
+    [1, false, 1],
 ];
 
 const level4SolutionHuman = [
