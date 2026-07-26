@@ -46,7 +46,7 @@ let upSpike = new Image(); upSpike.src = "./images-folder/up-spike.png";
 let downSpike = new Image(); downSpike.src = "./images-folder/down-spike.png";
 
 let infoP = document.getElementById("info-paragraph");
-let onInfoP = true;
+let onInfoP = false;
 
 
 // ============================================================
