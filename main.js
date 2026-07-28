@@ -45,9 +45,6 @@ let rightSpike = new Image(); rightSpike.src = "./images-folder/right-spike.png"
 let upSpike = new Image(); upSpike.src = "./images-folder/up-spike.png";
 let downSpike = new Image(); downSpike.src = "./images-folder/down-spike.png";
 
-let infoP = document.getElementById("info-paragraph");
-let onInfoP = false;
-
 
 // ============================================================
 // Autonomous playback mode
@@ -92,6 +89,10 @@ function jumpToLevel(levelNum) {
     if (levelNum === 7) { blocks = blocks7; spikes = spikes7; decors = decors7 }
     if (levelNum === 8) { blocks = blocks8; spikes = spikes8; decors = decors8 }
     if (levelNum === 9) { blocks = blocks9; spikes = spikes9; decors = decors9 }
+    if (levelNum === 10) { blocks = blocks10; spikes = spikes10; decors = decors10 }
+    if (levelNum === 11) { blocks = blocks11; spikes = spikes11; decors = decors11 }
+    if (levelNum === 12) { blocks = blocks12; spikes = spikes12; decors = decors12 }
+    if (levelNum === 13) { blocks = blocks13; spikes = spikes13; decors = decors13 }
     death();
 }
 
@@ -123,10 +124,6 @@ document.addEventListener("keydown", e => {
         if (checkAdminPassword()) {
             startAutoPlay(level, mathPerfectSolutions, "MATH-PERFECT");
         }
-    }
-    if (e.key === "i") {
-        onInfoP = !onInfoP
-        infoP.classList.toggle("hidden", !onInfoP)
     }
     if (e.key === "h") {
         if (checkAdminPassword()) {
@@ -167,6 +164,10 @@ function changeLevel() {
     if (level == 7) {blocks = blocks7; spikes = spikes7; decors = decors7}
     if (level == 8) {blocks = blocks8; spikes = spikes8; decors = decors8}
     if (level == 9) {blocks = blocks9; spikes = spikes9; decors = decors9}
+    if (level == 10) {blocks = blocks10; spikes = spikes10; decors = decors10}
+    if (level == 11) {blocks = blocks11; spikes = spikes11; decors = decors11}
+    if (level == 12) {blocks = blocks12; spikes = spikes12; decors = decors12}
+    if (level == 13) {blocks = blocks13; spikes = spikes13; decors = decors13}
 
     death()
 }
