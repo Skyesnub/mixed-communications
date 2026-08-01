@@ -63,6 +63,15 @@ let autoPlayFrame = 0;
 let autoPlaySequence = [];
 let autoPlayLabel = "";
 
+// live "learning player" simulation (see learning-ai.js) -- unlike autoPlay
+// (which replays a precomputed solution), this drives the real characters
+// with a policy that learns the level live, the same way the Python
+// realistic-player model does: no lookahead, dies to things it hasn't
+// seen, memorizes what worked, occasionally stops to consciously plan.
+let autoLearn = false;
+let autoLearnController = null;
+let autoLearnStartTime = 0;
+
 function checkAdminPassword() {
     const pw = prompt("Admin password:");
     return pw === ADMIN_PASSWORD;
@@ -103,6 +112,7 @@ function startAutoPlay(levelNum, solutionSet, label) {
         return;
     }
     jumpToLevel(levelNum);
+    autoLearn = false;
     autoPlaySequence = expandSolution(solution);
     autoPlayFrame = 0;
     autoPlay = true;
@@ -111,6 +121,18 @@ function startAutoPlay(levelNum, solutionSet, label) {
     movingRight = false;
     movingUp = false;
     console.log(`Autoplay started [${label}]: level ${levelNum}, ${autoPlaySequence.length} frames`);
+}
+
+function startAutoLearn(levelNum) {
+    jumpToLevel(levelNum);
+    autoPlay = false;
+    autoLearn = true;
+    autoLearnController = createLearningController(blocks, spikes, canvas.width, canvas.height);
+    autoLearnStartTime = performance.now();
+    movingLeft = false;
+    movingRight = false;
+    movingUp = false;
+    console.log(`Learning mode started: level ${levelNum}`);
 }
 // ============================================================
 
@@ -128,6 +150,11 @@ document.addEventListener("keydown", e => {
     if (e.key === "h") {
         if (checkAdminPassword()) {
             startAutoPlay(level, humanFriendlySolutions, "HUMAN-FRIENDLY");
+        }
+    }
+    if (e.key === "t") {
+        if (checkAdminPassword()) {
+            startAutoLearn(level);
         }
     }
     if (e.key === "ArrowUp") {
@@ -257,6 +284,20 @@ function draw() {
         ctx.fillStyle = "#00FF00";
         ctx.font = "16px monospace";
         ctx.fillText(`AUTO [${autoPlayLabel}]  frame ${autoPlayFrame}/${autoPlaySequence.length}`, 10, 20);
+    }
+
+    // learning-mode indicator
+    if (autoLearn && autoLearnController) {
+        const s = autoLearnController.state;
+        const elapsedSec = ((performance.now() - autoLearnStartTime) / 1000).toFixed(0);
+        ctx.fillStyle = s.thinking ? "#FFD700" : "#00FFFF";
+        ctx.font = "16px monospace";
+        ctx.fillText(
+            s.thinking
+                ? `LEARNING — thinking...`
+                : `LEARNING  attempt ${s.attemptNumber}  hazards known: ${s.knownHazards.size}/${spikes.length}  (${elapsedSec}s real time)`,
+            10, 20
+        );
     }
 
 }
@@ -473,7 +514,36 @@ function animate() {
         }
     }
 
-    if (!levelChangeAnimOn) {moving_collisions()}
+    let skipPhysicsThisFrame = false;
+
+    if (autoLearn && autoLearnController && !autoLearnController.state.done) {
+        const action = autoLearnController.stepController(p1x, p1y, p2x, p2y);
+        if (action === null) {
+            // "thinking" -- freeze in place, no collision check this frame
+            movingLeft = false;
+            movingRight = false;
+            movingUp = false;
+            skipPhysicsThisFrame = true;
+        } else if (action === "RESET") {
+            // gave up this attempt (wandered too long without dying or winning)
+            death();
+            movingLeft = false;
+            movingRight = false;
+            movingUp = false;
+            skipPhysicsThisFrame = true;
+        } else {
+            const [dx, up] = action;
+            movingLeft = dx < 0;
+            movingRight = dx > 0;
+            movingUp = up;
+        }
+    }
+
+    if (!levelChangeAnimOn && !skipPhysicsThisFrame) {moving_collisions()}
+
+    if (autoLearn && autoLearnController && autoLearnController.state.won) {
+        autoLearn = false;
+    }
     
 
     if (levelChangeAnimOn) {
