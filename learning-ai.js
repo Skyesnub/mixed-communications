@@ -197,6 +197,29 @@ const LearningAI = (function () {
 // -- everything else (learning, memorization, planning) is internal.
 // ============================================================
 
+
+// ============================================================
+// The live controller. Exposes a single per-frame entry point,
+// stepController(): the caller applies the returned action's
+// movingLeft/Right/Up flags and always lets moving_collisions()
+// run (physics/gravity never freezes, even while "thinking" --
+// a human who stops to study the screen still falls if unsupported,
+// they just aren't pressing anything).
+//
+// Human-plausibility fixes baked in:
+//  - Inputs are held for a randomized 5-10 frame commitment once
+//    chosen, instead of being re-decided every single frame (which
+//    produced inhuman 1-frame-on/1-frame-off flicker). If holding
+//    leads to a death that snappier reflexes could have dodged,
+//    that's accepted as realistic, not corrected.
+//  - The planning-burst search penalizes switching direction/thrust
+//    between consecutive frames, so 'thinking' also produces holdable
+//    stretches instead of frame-perfect toggling.
+//  - Whatever happens physically during a thinking pause (typically
+//    a bit of falling) is folded into the memorized plan, so replay
+//    on the next attempt stays consistent with reality.
+// ============================================================
+
 function createLearningController(blocks, spikes, canvasWidth, canvasHeight, opts) {
     opts = opts || {};
     const epsilon = opts.epsilon ?? 0.03;
@@ -209,6 +232,10 @@ function createLearningController(blocks, spikes, canvasWidth, canvasHeight, opt
     const planMaxDepth = opts.planMaxDepth ?? 150;
     const nearGoalThreshold = opts.nearGoalThreshold ?? 10;
     const thinkingDisplayMs = opts.thinkingDisplayMs ?? 700;
+    const holdMinFrames = opts.holdMinFrames ?? 5;
+    const holdMaxFrames = opts.holdMaxFrames ?? 10;
+    const burstSwitchPenalty = opts.burstSwitchPenalty ?? 5;
+    const maxFramesPerAttempt = opts.maxFramesPerAttempt ?? 4000;
 
     const spikeBoxes = spikes.map(LearningAI.spikeHitbox);
     const d1 = LearningAI.buildDistanceMap(blocks, spikes, 0, 0, 0, 600, canvasHeight, [500, 0, 100, 100]);
@@ -224,6 +251,10 @@ function createLearningController(blocks, spikes, canvasWidth, canvasHeight, opt
 
     function step(p1x, p1y, p2x, p2y, dx, up) {
         return LearningAI.pureStepJoint(blocks, spikeBoxes, p1x, p1y, p2x, p2y, dx, up, canvasWidth, canvasHeight);
+    }
+
+    function randHold() {
+        return holdMinFrames + Math.floor(Math.random() * (holdMaxFrames - holdMinFrames + 1));
     }
 
     const startH = h(0, 0, 600, 0);
@@ -244,6 +275,9 @@ function createLearningController(blocks, spikes, canvasWidth, canvasHeight, opt
         thinkingSecondsSpent: 0,
         thinking: false,
         thinkingUntil: 0,
+        thinkingFallBuffer: [],
+        currentAction: null,
+        holdFramesRemaining: 0,
         done: false,
         won: false,
         lastDeathHazardIdx: null,
@@ -293,12 +327,15 @@ function createLearningController(blocks, spikes, canvasWidth, canvasHeight, opt
         return best || LearningAI.ACTIONS[Math.floor(Math.random() * LearningAI.ACTIONS.length)];
     }
 
+    // Bounded A*, augmented with the previous frame's thrust state so
+    // switching direction/thrust costs extra -- biases the plan toward
+    // holdable multi-frame stretches instead of frame-perfect toggling.
     function planBurst(p1x, p1y, p2x, p2y) {
-        const startKey = p1x + "," + p1y + "," + p2x + "," + p2y;
+        const startKey = p1x + "," + p1y + "," + p2x + "," + p2y + ",2"; // 2 = no previous action yet
         const gScore = new Map([[startKey, 0]]);
         const cameFrom = new Map();
         const sH = h(p1x, p1y, p2x, p2y);
-        let heap = [[sH, startKey, p1x, p1y, p2x, p2y, 0]];
+        let heap = [[sH, startKey, p1x, p1y, p2x, p2y, 2, 0]];
         let bestKey = startKey, bestH = sH;
         let explored = 0;
 
@@ -331,7 +368,7 @@ function createLearningController(blocks, spikes, canvasWidth, canvasHeight, opt
         }
 
         while (heap.length && explored < planMaxNodes) {
-            const [f, key, x1, y1, x2, y2, g] = heapPop();
+            const [f, key, x1, y1, x2, y2, lastUp, g] = heapPop();
             if (g > (gScore.get(key) ?? Infinity)) continue;
             explored++;
             if (g >= planMaxDepth) continue;
@@ -348,12 +385,14 @@ function createLearningController(blocks, spikes, canvasWidth, canvasHeight, opt
                     return path;
                 }
                 if (res.result === "DEAD") continue;
-                const nk = res.p1x + "," + res.p1y + "," + res.p2x + "," + res.p2y;
-                const ng = g + 1;
+                const upInt = up ? 1 : 0;
+                const switchCost = (lastUp === 2 || upInt === lastUp) ? 0 : burstSwitchPenalty;
+                const nk = res.p1x + "," + res.p1y + "," + res.p2x + "," + res.p2y + "," + upInt;
+                const ng = g + 1 + switchCost;
                 if (ng < (gScore.get(nk) ?? Infinity)) {
                     gScore.set(nk, ng);
                     cameFrom.set(nk, [key, [dx, up]]);
-                    heapPush([ng + h(res.p1x, res.p1y, res.p2x, res.p2y), nk, res.p1x, res.p1y, res.p2x, res.p2y, ng]);
+                    heapPush([ng + h(res.p1x, res.p1y, res.p2x, res.p2y), nk, res.p1x, res.p1y, res.p2x, res.p2y, upInt, ng]);
                 }
             }
         }
@@ -366,36 +405,18 @@ function createLearningController(blocks, spikes, canvasWidth, canvasHeight, opt
         return path.length ? path : null;
     }
 
-    function tryPlanBurstFromPrefixEnd() {
-        let p1x = 0, p1y = 0, p2x = 600, p2y = 0;
+        function computeFrontier() {
+        // replay bestPrefix from scratch via pure step to find the TRUE
+        // frontier position -- this is where planning should search from,
+        // independent of whatever the character is visually doing on screen.
+        let x1 = 0, y1 = 0, x2 = 600, y2 = 0;
         for (const [dx, up] of S.bestPrefix) {
-            const res = step(p1x, p1y, p2x, p2y, dx, up);
-            if (res.result !== "OK") return; // shouldn't happen; prefix was validated live
-            p1x = res.p1x; p1y = res.p1y; p2x = res.p2x; p2y = res.p2y;
+            const res = step(x1, y1, x2, y2, dx, up);
+            if (res.result !== "OK") break; // shouldn't happen; bestPrefix is validated death-free
+            x1 = res.p1x; y1 = res.p1y; x2 = res.p2x; y2 = res.p2y;
         }
-        const burst = planBurst(p1x, p1y, p2x, p2y);
-        S.thinkingSecondsSpent += 8;
-        S.thinking = true;
-        S.thinkingUntil = performance.now() + thinkingDisplayMs;
-        if (burst) {
-            S.bestPrefix = S.bestPrefix.concat(burst);
-            let bx = p1x, by = p1y, cx = p2x, cy = p2y;
-            for (const [dx, up] of burst) {
-                const res = step(bx, by, cx, cy, dx, up);
-                if (res.result === "WIN") { S.bestHEver = 0; bx = null; break; }
-                bx = res.p1x; by = res.p1y; cx = res.p2x; cy = res.p2y;
-            }
-            if (bx !== null) {
-                const endH = h(bx, by, cx, cy);
-                if (endH < S.bestHEver) S.bestHEver = endH;
-            }
-        }
+        return [x1, y1, x2, y2];
     }
-
-    // Single per-frame entry point.
-    // Returns {dx, up} to apply this frame, or null if the AI is 'thinking'
-    // (caller should skip moving_collisions() that frame and show an indicator).
-    const maxFramesPerAttempt = opts.maxFramesPerAttempt ?? 4000;
 
     function giveUpAttempt() {
         S.attemptNumber++;
@@ -412,8 +433,34 @@ function createLearningController(blocks, spikes, canvasWidth, canvasHeight, opt
         S.bestHFrameThisAttempt = 0;
         S.stuckCounter = 0;
         S.lastH = startH;
+        S.currentAction = null;
+        S.holdFramesRemaining = 0;
+
         if (S.stagnantAttempts >= stagnationThreshold && S.bestPrefix.length) {
-            tryPlanBurstFromPrefixEnd();
+            // plan from the TRUE frontier (end of the current best plan), computed
+            // independently of whatever the character is about to visually do
+            // during the pause -- these are deliberately decoupled.
+            const [fx1, fy1, fx2, fy2] = computeFrontier();
+            const burst = planBurst(fx1, fy1, fx2, fy2);
+            if (burst) {
+                let bx = fx1, by = fy1, cx = fx2, cy = fy2, won = false;
+                for (const [dx, up] of burst) {
+                    const res = step(bx, by, cx, cy, dx, up);
+                    if (res.result === "WIN") { won = true; break; }
+                    bx = res.p1x; by = res.p1y; cx = res.p2x; cy = res.p2y;
+                }
+                const endH = won ? 0 : h(bx, by, cx, cy);
+                if (endH < S.bestHEver) {
+                    S.bestHEver = endH;
+                    S.bestPrefix = S.bestPrefix.concat(burst);
+                }
+            }
+            // visual-only pause: character cosmetically settles/falls at the true
+            // start position while "thinking" is displayed, then gets snapped
+            // back to start before the next attempt begins (see stepController).
+            S.thinking = true;
+            S.thinkingUntil = performance.now() + thinkingDisplayMs;
+            S.thinkingSecondsSpent += thinkingDisplayMs / 1000;
             S.stagnantAttempts = 0;
         }
     }
@@ -422,13 +469,34 @@ function createLearningController(blocks, spikes, canvasWidth, canvasHeight, opt
         if (S.done) return null;
 
         if (S.thinking) {
-            if (performance.now() < S.thinkingUntil) return null;
-            S.thinking = false;
+            const outcome = step(p1x, p1y, p2x, p2y, 0, false);
+            S.totalGameFrames++;
+
+            if (outcome.result === "DEAD") {
+                // unlucky: fell into something while pausing to think, purely cosmetic
+                // fall but a real hazard is still a real hazard -- learn it.
+                S.knownHazards.add(outcome.hazardIdx);
+                S.thinking = false;
+                giveUpAttempt();
+                return "RESET";
+            }
+            if (outcome.result === "WIN") {
+                // essentially impossible from a no-input fall, but handle it
+                S.done = true;
+                S.won = true;
+                return [0, false];
+            }
+
+            if (performance.now() >= S.thinkingUntil) {
+                S.thinking = false;
+                return "RESET"; // snap back to the true start before resuming the plan
+            }
+            return [0, false];
         }
 
         if (S.currentFrame >= maxFramesPerAttempt) {
             giveUpAttempt();
-            return "RESET"; // caller should reset the real player positions to start
+            return "RESET";
         }
 
         const usePrefix = S.currentFrame < S.bestPrefix.length;
@@ -437,8 +505,13 @@ function createLearningController(blocks, spikes, canvasWidth, canvasHeight, opt
             const nearHazard = nearKnownHazard(p1x, p1y, p2x, p2y);
             const slip = nearHazard ? slipRateHazard : slipRateSafe;
             action = (Math.random() >= slip) ? S.bestPrefix[S.currentFrame] : chooseLiveAction(p1x, p1y, p2x, p2y);
+        } else if (S.holdFramesRemaining > 0 && S.currentAction) {
+            action = S.currentAction;
+            S.holdFramesRemaining--;
         } else {
             action = chooseLiveAction(p1x, p1y, p2x, p2y);
+            S.currentAction = action;
+            S.holdFramesRemaining = randHold() - 1;
         }
 
         const [dx, up] = action;
